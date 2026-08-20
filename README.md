@@ -12,7 +12,7 @@ Inspired by and combining ideas from:
 - **TorBot** — dark-web .onion analysis  
 - **EmploLeaks** — employees + breach checks  
 - **Emora / Profil3r / Sherlock-class** — username matrix  
-- Plus: Wayback CDX, BGPView ASN, cloud buckets, takeover fingerprints, favicon/Shodan pivots, EXIF, dork packs, **Web3 multi-chain OSINT**
+- Plus: Wayback CDX, BGPView ASN, cloud buckets, takeover fingerprints, favicon/Shodan pivots, EXIF, dork packs, SaaS tenants, typosquats, package registries, company filings, person pivots, **Web3 multi-chain OSINT**
 
 All in one toolkit with **auto target detection**, **entity correlation**, styled reports, and a keyboard-driven split-pane TUI.
 
@@ -20,69 +20,83 @@ All in one toolkit with **auto target detection**, **entity correlation**, style
 
 ## Features
 
-### Auto-detect & correlation
-- Detect domain, IP, email, phone, username, URL, onion, company, **person**, or **wallet**
-- Correlate emails, domains, IPs, usernames, URLs, and wallets across modules
+### Core workflow
+| Feature | Details |
+|---------|---------|
+| **Auto-detect** | Domain, IP, email, phone, username, URL, onion, company, person, wallet |
+| **Full / Auto scan** | Multi-module suites per target type |
+| **Correlation** | Cross-link emails, domains, IPs, usernames, URLs, phones, wallets |
+| **Cases** | Investigation folders; attach scans |
+| **Graph export** | JSON + GraphML entity graphs |
+| **Plugins** | Drop-in `modules/plugins/*.py` |
+| **Batch mode** | Multi-target file (`--batch`) |
+| **Reports** | JSON / TXT / HTML / Markdown; TUI view + delete |
+| **Polite probing** | Soft rate-limit + rotating User-Agents |
 
 ### Interactive TUI
-- Full-terminal layout: **module menu on the left**, feature pane on the right (wide terminals)
+- Split layout: **module menu left**, feature pane right (wide terminals)
 - Large **EPIC OSINT TOOLKIT** logo when idle
-- Heavy ASCII/ANSI panels, styled intel reports (not raw JSON dumps)
-- View / **delete** saved reports from the Reports tab
+- Per-module beginner help blurbs
+- Styled intel reports (not raw JSON dumps)
+- Settings for format, Tor, crawl defaults, rate limits, API keys
+- Reports tab: browse / open / delete saved scans
 
-### Domain intelligence
-- DNS: A, AAAA, MX, NS, TXT, CNAME, SOA, PTR  
-- Email auth: SPF, DMARC, DKIM selectors  
-- DNSSEC: DNSKEY / DS / RRSIG  
-- Subdomains: brute-force, crt.sh, HackerTarget  
-- WHOIS + SSL certificate analysis  
+**TUI modules:** Auto · Full · Domain · IP · ASN · Related Domains · Typosquats · SaaS Tenants · Company Biz · Person · Packages · Passive DNS · Abuse · IOC · Crypto/Web3 · Social · Perms · GitHub · Crawl · JS Secrets · Screenshot · Emails · Email Accounts · URLs · Wayback · Pastes · Dorks · Buckets · Takeover · Favicon · EXIF/Meta · Image Pivots · Phone · Ports · Shodan/Censys · Employees · Dark Web · Onion Search · Tor Health · Graph · Cases · Plugins · Reports · Settings
 
-### IP / ASN / host
-- Geo, ISP/org, reverse DNS, proxy/hosting risk (ip-api + BGPView)  
-- ASN netblocks, peers, upstreams  
-- Optional **Shodan** / **Censys** (API keys)  
+### Domain & DNS
+- DNS: A, AAAA, MX, NS, TXT, CNAME, SOA, PTR
+- Email auth: SPF, DMARC, DKIM selectors
+- DNSSEC: DNSKEY / DS / RRSIG
+- Subdomains: brute-force, crt.sh, HackerTarget
+- WHOIS + SSL certificate analysis
+- Related domains: CT SANs, live SSL SANs, same-IP neighbors
+- Typosquat / lookalike generation + live DNS resolve
+- Passive DNS historical host/IP pivots
+- Abuse / DNSBL reputation lists
 
-### Social & GitHub
-- **100+** platform username matrix with soft-404 detection  
-- Associated accounts + GitHub profile / orgs / emails / repos  
+### IP / ASN / host surface
+- Geo, ISP/org, reverse DNS, proxy/hosting risk (ip-api + BGPView)
+- ASN netblocks, peers, upstreams
+- Port scan + banners (+ optional nmap)
+- Optional **Shodan** / **Censys** (API keys)
+- IOC enrich: VirusTotal / AlienVault OTX (+ public pivots)
+
+### Cloud, SaaS & supply chain
+- Cloud buckets: S3, GCS, Azure Blob, DigitalOcean Spaces
+- Subdomain takeover: dangling DNS + service fingerprints
+- SaaS / tenant discovery: Azure AD, Google Workspace, Slack, Okta, Atlassian, Salesforce, GitHub/GitLab org, Notion, Zendesk, HubSpot, Webex
+- Package registries: npm, PyPI, crates.io, RubyGems, Docker Hub
 
 ### Web crawl & URL surface
-- creepyCrawler-style crawl, robots/sitemap, dirs, tech detect  
-- Emails, phones, social, cloud links, files, comments, tags  
-- URL hunter + **Wayback Machine CDX** fallback  
-- Paste / GitHub code leak hunt  
+- creepyCrawler-style crawl, robots/sitemap, dirs, tech detect
+- Extracts emails, phones, social, cloud links, files, comments, tags
+- URL hunter (shorteners) + Wayback Machine CDX
+- URLTeam archive search (optional)
+- JS / page secret & API-path mining
+- Headless Chrome/Chromium screenshots (when installed)
+- Favicon mmh3 → Shodan `http.favicon.hash` pivot
+- Search-engine **dork packs** (Google / DuckDuckGo / Bing)
+- Paste / GitHub code leak hunt
 
-### Recon extras
-- **Dork generator** — Google / DuckDuckGo / Bing packs by target type  
-- **Cloud buckets** — S3, GCS, Azure Blob, DigitalOcean Spaces probes  
-- **Takeover checks** — dangling DNS + service fingerprints  
-- **Favicon mmh3** — Shodan `http.favicon.hash` pivot  
-- **EXIF / metadata** — JPEG EXIF (+ GPS) and light PDF Info from URL or local file  
-- **Related domains** — CT SANs, live SSL SANs, same-IP neighbors  
-- **Passive DNS** — historical host/IP pivots  
-- **Abuse / DNSBL** — reputation list checks  
-- **JS secrets** — page/JS key & API-path mining  
-- **Email accounts** — Holehe-style registration probes  
-- **Username perms** — name/email local-part permutations  
-- **Image pivots** — reverse-image search URLs  
-- **IOC enrich** — optional VirusTotal / OTX (+ public pivots)  
-- **Company biz** — OpenCorporates + SEC EDGAR tickers + registry pivots  
-- **SaaS tenants** — Azure AD, Google Workspace, Slack, Okta, Atlassian, …  
-- **Typosquats** — lookalike generation + live DNS resolve  
-- **Packages** — npm / PyPI / crates / RubyGems / Docker Hub supply-chain search  
-- **Person OSINT** — full-name seeds, GitHub user hits, people-search pivots  
-- **Crypto / Web3** — selectable `evm` bucket + independent chains; ENS; privacy-coin OSINT  
-- **Screenshots** — headless Chrome/Chromium when installed  
-- **Cases + graph** — investigation folders; JSON/GraphML entity graphs  
-- **Plugins** — drop-in `modules/plugins/*.py`  
+### People, email & social
+- **100+** platform username matrix (soft-404 aware)
+- Username / name / email local-part permutations
+- GitHub profile, orgs, emails, repos
+- Email discover / MX + SMTP RCPT verify / sources
+- Holehe-style email → account registration checks
+- Person OSINT: full-name parse, username/email seeds, GitHub user hits, people-search pivots
+- Employees (GitHub / GitLab / website) + HIBP leak checks
+- Company business intel: OpenCorporates, SEC EDGAR tickers, registry pivots
+- Phone: E.164 normalize, country hints, leak-style pivots
 
-### Email, phone, ports, company, dark web
-- Email discover / MX + SMTP RCPT verify / sources  
-- Phone E.164, country hints, pivots  
-- Port scan + banners (+ optional nmap)  
-- Employees (GitHub/GitLab/website) + HIBP leaks  
-- .onion analyze/crawl + **Ahmia** directory search (Tor optional)  
-- **Tor health** check against the SOCKS proxy  
+### Media & documents
+- EXIF / metadata: JPEG (+ GPS) and light PDF Info (URL or local file)
+- Reverse-image search pivot URLs (Google Lens, Yandex, TinEye, Bing, …)
+
+### Dark web
+- .onion analyze / crawl (Tor optional)
+- Ahmia onion directory search
+- Tor SOCKS health check (`127.0.0.1:9050`)
 
 ### Web3 / cryptocurrency
 
@@ -105,10 +119,8 @@ Select **what to query** so you are not sweeping every chain every time:
 - Refuses private-key / WIF shaped input
 - List groups: `--crypto-chains` · TUI: Web3 menu toggles Auto / EVM / each independent chain
 
-### Reporting
-- JSON / TXT / HTML / **Markdown** on disk  
-- TUI shows a colorized, sectioned intel report derived from the same data  
-- Soft **rate-limit** + rotating User-Agents for polite probing  
+### Optional API keys
+GitHub · Shodan · Censys · HIBP · VirusTotal · OTX · Etherscan
 
 ---
 
@@ -139,7 +151,7 @@ pip install -r requirements.txt
 # Windows: .\setup.ps1 then .\venv\Scripts\Activate.ps1
 ```
 
-Optional: Tor on `127.0.0.1:9050` for dark-web mode. API keys (optional): Shodan, Censys, HIBP, GitHub, VirusTotal, OTX, Etherscan.
+Optional: Tor on `127.0.0.1:9050` for dark-web mode. API keys are optional (see above).
 
 ---
 
@@ -171,17 +183,26 @@ python osint_toolkit.py -t example.com --auto
 
 # Domain stack
 python osint_toolkit.py -t example.com --dns --subdomains --emails --ports
-
-# New recon modules
 python osint_toolkit.py -t example.com --dorks --buckets --takeover --favicon
 python osint_toolkit.py -t example.com --related --passive-dns --js-secrets --abuse
 python osint_toolkit.py -t example.com --saas --typosquat --packages
+
+# People / company / email
+python osint_toolkit.py -t johndoe --type username --social --github --perms
 python osint_toolkit.py -t user@example.com --email-accounts --perms
+python osint_toolkit.py -t "Acme Corp" --type company --employees --leaks --company-biz
+python osint_toolkit.py -t "Jane Doe" --type person --person --perms
+python osint_toolkit.py -t "+15551234567" --phone
+
+# IP / IOC / host APIs
 python osint_toolkit.py -t 8.8.8.8 --ip --asn --ioc --vt-key YOUR_KEY
+python osint_toolkit.py -t 1.2.3.4 --shodan --shodan-key YOUR_KEY
+
+# Media / screenshots / graph
 python osint_toolkit.py -t https://example.com/photo.jpg --meta --image-pivots
 python osint_toolkit.py -t example.com --screenshot --graph --format md
 
-# Web3 / crypto (chain selection)
+# Web3 / crypto
 python osint_toolkit.py --crypto-chains
 python osint_toolkit.py -t 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 --crypto --chains auto
 python osint_toolkit.py -t 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 --crypto --chains evm
@@ -189,24 +210,16 @@ python osint_toolkit.py -t vitalik.eth --crypto --chains evm --etherscan-key YOU
 python osint_toolkit.py -t root.near --crypto --chains near
 python osint_toolkit.py -t bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq --crypto --chains bitcoin --pastes --dorks
 
+# Dark web
+python osint_toolkit.py -t "example.onion" --type onion --dark-web --tor --onion-search
+python osint_toolkit.py --tor-check --tor
+
 # Cases / batch / plugins
 python osint_toolkit.py --case-create "Op Alpha"
 python osint_toolkit.py -t example.com --auto --case CASE_ID
 python osint_toolkit.py --batch targets.txt --format json
 python osint_toolkit.py --list-plugins
 python osint_toolkit.py -t example.com --plugin example_echo
-python osint_toolkit.py --tor-check --tor
-
-# People / company
-python osint_toolkit.py -t johndoe --type username --social --github
-python osint_toolkit.py -t "Acme Corp" --type company --employees --leaks --company-biz
-python osint_toolkit.py -t "Jane Doe" --type person --person --perms
-
-# Dark web
-python osint_toolkit.py -t "example.onion" --type onion --dark-web --tor --onion-search
-
-# Reports
-python osint_toolkit.py -t example.com --full --format html -o reports
 ```
 
 ### Command-line options (summary)
@@ -252,10 +265,24 @@ Run `python osint_toolkit.py --help` for the full list.
 | `domain_intel.py` | DNS, CT subs, WHOIS, SSL, SPF/DMARC/DKIM, DNSSEC |
 | `ip_intel.py` | Geo / risk / rDNS |
 | `asn_intel.py` | ASN prefixes / peers / upstreams |
+| `related_domains.py` | CT / SSL / same-IP |
+| `typosquat_intel.py` | Lookalike domains + DNS resolve |
+| `saas_intel.py` | Azure AD / Workspace / Slack / Okta tenants |
+| `company_intel.py` | OpenCorporates / SEC EDGAR / business pivots |
+| `person_intel.py` | Full-name seeds + people-search pivots |
+| `package_intel.py` | npm / PyPI / crates / RubyGems / Docker Hub |
+| `passive_dns.py` | Passive DNS |
+| `abuse_intel.py` | DNSBL reputation |
+| `ioc_intel.py` | VT / OTX enrichment |
+| `crypto_intel.py` | Web3: selectable `evm` + independent chains, ENS, privacy OSINT |
 | `social_intel.py` | 100+ username matrix |
+| `username_perm.py` | Name / email permutations |
 | `github_intel.py` | Profile, repos, emails |
 | `web_crawler.py` | Crawl / extract / tech |
+| `js_secrets.py` | JS / page secret mining |
+| `screenshot_intel.py` | Headless Chrome capture |
 | `email_intel.py` | Discover / verify / sources |
+| `email_accounts.py` | Holehe-style account checks |
 | `url_hunter.py` | Shorteners + Wayback fallback |
 | `wayback_intel.py` | Archive.org CDX |
 | `paste_intel.py` | GitHub code + paste dorks |
@@ -264,45 +291,37 @@ Run `python osint_toolkit.py --help` for the full list.
 | `takeover_intel.py` | Takeover fingerprints |
 | `favicon_intel.py` | Favicon mmh3 / Shodan pivot |
 | `meta_intel.py` | EXIF / metadata |
+| `image_pivot.py` | Reverse-image search URLs |
 | `phone_intel.py` | Phone OSINT |
 | `port_scanner.py` | Ports / banners |
 | `host_intel.py` | Shodan / Censys |
-| `employee_intel.py` | Company / HIBP |
-| `dark_web_intel.py` | Onion + Ahmia |
-| `crypto_intel.py` | Web3: selectable `evm` + independent chains, ENS, privacy OSINT |
-| `ioc_intel.py` | VT / OTX enrichment |
-| `abuse_intel.py` | DNSBL reputation |
-| `passive_dns.py` | Passive DNS |
-| `js_secrets.py` | JS / page secret mining |
-| `email_accounts.py` | Holehe-style account checks |
-| `related_domains.py` | CT / SSL / same-IP |
-| `company_intel.py` | OpenCorporates / SEC EDGAR / business pivots |
-| `saas_intel.py` | Azure AD / Workspace / Slack / Okta tenants |
-| `typosquat_intel.py` | Lookalike domains + DNS resolve |
-| `package_intel.py` | npm / PyPI / crates / RubyGems / Docker Hub |
-| `person_intel.py` | Full-name seeds + people-search pivots |
+| `employee_intel.py` | Staff discovery / HIBP |
+| `dark_web_intel.py` | Onion + Ahmia + Tor health |
 | `cases.py` / `graph_export.py` | Cases + GraphML |
 | `plugins_loader.py` | Drop-in plugins |
-| `correlate.py` | Auto-detect + graph |
+| `correlate.py` | Auto-detect + entity graph |
+| `report_generator.py` | TXT / HTML / Markdown / summary |
 | `tui.py` / `tui_style.py` | Split-pane ASCII UI + styled reports |
-| `report_generator.py` | TXT / HTML / summary |
+| `http_util.py` / `net_util.py` | Rate-limit, UA rotation, SSRF-safe hosts |
 
 ---
 
 ## Output
 
-Reports are written under `reports/` (or `-o`) as JSON, TXT, or HTML. The TUI formats the same JSON into a readable intel report and can delete old `osint_*` files from the Reports tab.
+Reports are written under `reports/` (or `-o`) as JSON, TXT, HTML, or Markdown. Cases live under `cases/`. The TUI formats the same JSON into a readable intel report and can delete old `osint_*` files from the Reports tab.
 
 ---
 
 ## Legal / ethics
 
-Use only on targets you are authorized to investigate. Respect laws, ToS, and rate limits. Optional APIs (Shodan, Censys, HIBP, GitHub) require your own keys.
+Use only on targets you are authorized to investigate. Respect laws, ToS, and rate limits. Optional APIs (Shodan, Censys, HIBP, GitHub, VirusTotal, OTX, Etherscan) require your own keys.
 
 ---
 
 ## License
 
-MIT License © 2026 [N0L0g1c](https://github.com/N0L0g1c) — see [LICENSE](LICENSE).
+[MIT](LICENSE). Copyright © 2026 [Vassbrekke AS](https://www.vassbrekke.no).
+
+Source: https://github.com/Vassbrekke/Epic-OSINT-Toolkit
 
 You may use, copy, modify, and distribute this software freely, including commercially, as long as you keep the copyright notice and license text. No warranty is provided; use responsibly and only on targets you are authorized to investigate.
