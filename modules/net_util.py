@@ -9,7 +9,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 UA = (
-    "Mozilla/5.0 (compatible; EpicOSINT/2.0; +https://github.com/N0L0g1c/Epic-OSINT-Toolkit)"
+    "Mozilla/5.0 (compatible; EpicOSINT/2.0; +https://github.com/Vassbrekke/Epic-OSINT-Toolkit)"
 )
 DEFAULT_HEADERS = {"User-Agent": UA, "Accept": "text/html,application/json,*/*"}
 
