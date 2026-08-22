@@ -12,7 +12,7 @@ try {
     Write-Host "Found: $pythonVersion" -ForegroundColor Green
 } catch {
     Write-Host "ERROR: Python is not installed or not in PATH" -ForegroundColor Red
-    Write-Host "Please install Python 3.8 or higher from https://www.python.org/" -ForegroundColor Yellow
+    Write-Host "Please install Python 3.10 or higher from https://www.python.org/" -ForegroundColor Yellow
     exit 1
 }
 
@@ -41,15 +41,10 @@ Write-Host ""
 Write-Host "Activating virtual environment..." -ForegroundColor Yellow
 & .\venv\Scripts\Activate.ps1
 
-# Upgrade pip
+# Install hashed lockfile (do not upgrade pip unconstrained — that breaks reproducibility)
 Write-Host ""
-Write-Host "Upgrading pip..." -ForegroundColor Yellow
-python -m pip install --upgrade pip
-
-# Install dependencies
-Write-Host ""
-Write-Host "Installing dependencies..." -ForegroundColor Yellow
-pip install -r requirements.txt
+Write-Host "Installing hashed lockfile (requirements.txt)..." -ForegroundColor Yellow
+python -m pip install --require-hashes -r requirements.txt
 
 # Create reports directory
 Write-Host ""

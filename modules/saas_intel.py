@@ -51,12 +51,24 @@ class SaaSIntel:
                     findings.append(res)
 
         findings.sort(key=lambda x: (x.get("status") != "found", x.get("service", "")))
+        # Only medium+ confidence "found" count as real hits
+        _rank = {"confirmed": 4, "high": 3, "medium": 2, "low": 1, "unknown": 0}
+        reliable = [
+            f for f in findings
+            if f.get("status") == "found" and _rank.get((f.get("confidence") or "medium").lower(), 2) >= 2
+        ]
+        low = [
+            f for f in findings
+            if f.get("status") == "found" and _rank.get((f.get("confidence") or "").lower(), 0) < 2
+        ]
         return {
             "domain": domain,
             "slug": slug,
-            "found": [f for f in findings if f.get("status") == "found"],
+            "found": reliable,
+            "low_confidence": low,
             "checked": findings,
-            "count": sum(1 for f in findings if f.get("status") == "found"),
+            "count": len(reliable),
+            "note": "Only medium/high confidence tenants listed under found. Confirm via DNS MX/TXT.",
             "pivots": [
                 {"name": "Azure AD login", "url": f"https://login.microsoftonline.com/{quote(domain)}"},
                 {"name": "Google Workspace", "url": f"https://admin.google.com/"},
@@ -94,6 +106,7 @@ class SaaSIntel:
         return {
             "service": "azure_ad_realm",
             "status": "found" if found else "not_found",
+            "confidence": "high" if found else "high",
             "namespace_type": nstype or None,
             "federation_brand": brand or None,
             "auth_url": auth_url or None,
@@ -117,6 +130,7 @@ class SaaSIntel:
             return {
                 "service": "azure_ad_oidc",
                 "status": "found",
+                "confidence": "confirmed" if tid else "high",
                 "tenant_id": tid,
                 "issuer": issuer or None,
                 "token_endpoint": data.get("token_endpoint"),
@@ -125,22 +139,36 @@ class SaaSIntel:
         return {
             "service": "azure_ad_oidc",
             "status": "not_found" if r.status_code in (400, 404) else "unknown",
+            "confidence": "high" if r.status_code in (400, 404) else "unknown",
             "http": r.status_code,
         }
 
     def _google_workspace(self, domain: str) -> Optional[Dict[str, Any]]:
         pace()
-        # Public endpoint: redirect / 200 often means Workspace or consumer routing
+        # Public endpoint is noisy — only treat as found on clear positive markers
         url = f"https://www.google.com/a/{quote(domain)}/ServiceLogin"
         r = self.session.get(url, headers=rotate_headers(), timeout=12, allow_redirects=False)
         loc = r.headers.get("Location") or ""
-        # 200 or redirect away from /a/domain often indicates managed domain presence
-        found = r.status_code in (200, 302) and "AccountDomainNotFound" not in (r.text or "")
-        if "not found" in (r.text or "").lower() or "does not exist" in (r.text or "").lower():
+        text = r.text or ""
+        low = text.lower()
+        if "AccountDomainNotFound" in text or "not a valid" in low or "does not exist" in low:
             found = False
+            conf = "high"
+        elif r.status_code in (200, 302) and (
+            "accounts.google.com" in loc.lower()
+            or "ServiceLogin" in loc
+            or "google.com/a/" in (loc or url)
+        ) and "AccountDomainNotFound" not in text:
+            # Still medium — many consumer domains redirect generically
+            found = True
+            conf = "medium"
+        else:
+            found = False
+            conf = "medium"
         return {
             "service": "google_workspace",
             "status": "found" if found else "not_found",
+            "confidence": conf,
             "http": r.status_code,
             "redirect": loc[:200] if loc else None,
             "note": "Heuristic — confirm via MX (ASPMX/google) or admin console",
@@ -169,29 +197,93 @@ class SaaSIntel:
         if not is_safe_host(host):
             return None
         pace()
+        body = ""
+        final_url = url
         try:
-            r = self.session.head(url, headers=rotate_headers(), timeout=8, allow_redirects=True)
+            r = self.session.get(url, headers=rotate_headers(), timeout=8, allow_redirects=True)
             status_code = r.status_code
-            if status_code in (403, 405):
-                r = self.session.get(url, headers=rotate_headers(), timeout=8, allow_redirects=True)
-                status_code = r.status_code
+            body = (r.text or "")[:6000]
+            final_url = r.url or url
         except requests.RequestException:
             return {
                 "service": item["service"],
                 "status": "unknown",
+                "confidence": "unknown",
                 "url": url,
             }
 
-        # 200/401/403 often mean tenant/host exists; 404 = free/missing
+        service = item["service"]
+        low = body.lower()
+        final_host = final_url.split("/")[2].lower() if "://" in final_url else host.lower()
+
+        # Hard negatives
         if status_code in (404, 410):
-            st = "not_found"
-        elif status_code in (200, 301, 302, 401, 403):
-            st = "found"
+            return {
+                "service": service, "status": "not_found", "confidence": "high",
+                "url": url, "http": status_code, "final_url": final_url,
+            }
+
+        soft_miss = (
+            "does not exist", "doesn't exist", "not found", "no such",
+            "couldn't find", "there is no", "invalid workspace",
+            "workspace not found", "team not found", "site not found",
+            "this page doesn't exist", "this page does not exist",
+        )
+        if any(s in low for s in soft_miss):
+            return {
+                "service": service, "status": "not_found", "confidence": "high",
+                "url": url, "http": status_code, "final_url": final_url,
+            }
+
+        # Service-specific positives
+        conf = "medium"
+        st = "unknown"
+        slug = host.split(".")[0].lower()
+
+        if service == "slack":
+            # Free/unused slacks often 404; existing workspaces show sign-in
+            if status_code == 200 and ("signin" in low or "workspace" in low or "slack.com" in final_host):
+                if slug and slug in final_host:
+                    st, conf = "found", "high"
+                else:
+                    st, conf = "not_found", "medium"
+            elif status_code in (401, 403):
+                st, conf = "found", "medium"
+        elif service in ("github_org", "gitlab_group"):
+            if status_code == 200 and slug in final_url.lower():
+                st, conf = "found", "high"
+            else:
+                st, conf = "not_found" if status_code == 404 else "unknown", "medium"
+        elif service == "okta":
+            # Unclaimed often lands on okta.com marketing or 404
+            if "okta.com" in final_host and slug in final_host and status_code in (200, 401, 403):
+                if "page not found" in low or "doesn't exist" in low:
+                    st, conf = "not_found", "high"
+                else:
+                    st, conf = "found", "high"
+            else:
+                st = "not_found" if status_code in (404, 301, 302) and slug not in final_host else "unknown"
+                conf = "medium"
+        elif service in ("atlassian", "zendesk", "hubspot", "webex", "notion", "salesforce"):
+            # Require slug still present in final host; 401/403 = tenant likely exists
+            if slug in final_host:
+                if status_code in (200, 401, 403):
+                    st, conf = "found", "high" if status_code in (401, 403) else "medium"
+                elif status_code in (301, 302):
+                    st, conf = "found", "low"
+            else:
+                st, conf = "not_found", "medium"
         else:
-            st = "unknown"
+            if status_code in (200, 401, 403) and slug in final_host:
+                st, conf = "found", "medium"
+            elif status_code in (404, 410):
+                st, conf = "not_found", "high"
+
         return {
-            "service": item["service"],
+            "service": service,
             "status": st,
+            "confidence": conf,
             "url": url,
             "http": status_code,
+            "final_url": final_url,
         }

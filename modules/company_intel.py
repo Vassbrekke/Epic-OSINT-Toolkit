@@ -91,27 +91,45 @@ class CompanyIntel:
             if r.status_code != 200:
                 return hits
             data = r.json()
+            # Score matches — avoid substring FPs for short names like "Arcus"
+            scored: List[tuple] = []
+            tokens = [t for t in re.split(r"\s+", needle) if len(t) >= 2]
             for row in data.values() if isinstance(data, dict) else []:
                 title = str(row.get("title") or "")
                 ticker = str(row.get("ticker") or "")
                 cik = row.get("cik_str")
                 if not title:
                     continue
-                tl = title.lower()
-                if needle in tl or tl in needle or (len(needle) >= 4 and needle.split()[0] in tl):
-                    cik_pad = str(cik).zfill(10) if cik is not None else ""
-                    hits.append({
-                        "name": title,
-                        "ticker": ticker,
-                        "cik": cik,
-                        "edgar_url": (
-                            f"https://www.sec.gov/cgi-bin/browse-edgar"
-                            f"?action=getcompany&CIK={cik_pad}&owner=exclude&count=40"
-                            if cik_pad else None
-                        ),
-                    })
-                if len(hits) >= 15:
-                    break
+                tl = title.lower().strip()
+                score = 0
+                conf = "low"
+                if tl == needle or ticker.lower() == needle:
+                    score, conf = 100, "confirmed"
+                elif tl.startswith(needle + " ") or tl.endswith(" " + needle) or f" {needle} " in f" {tl} ":
+                    score, conf = 80, "high"
+                elif len(needle) >= 6 and needle in tl:
+                    score, conf = 60, "medium"
+                elif len(needle) >= 5 and tokens and all(t in tl for t in tokens):
+                    score, conf = 50, "medium"
+                else:
+                    # reject short/partial substring matches (major FP source)
+                    continue
+                cik_pad = str(cik).zfill(10) if cik is not None else ""
+                scored.append((score, {
+                    "name": title,
+                    "ticker": ticker,
+                    "cik": cik,
+                    "confidence": conf,
+                    "match_score": score,
+                    "edgar_url": (
+                        f"https://www.sec.gov/cgi-bin/browse-edgar"
+                        f"?action=getcompany&CIK={cik_pad}&owner=exclude&count=40"
+                        if cik_pad else None
+                    ),
+                }))
+            scored.sort(key=lambda x: -x[0])
+            for _, hit in scored[:15]:
+                hits.append(hit)
         except (requests.RequestException, ValueError, TypeError, AttributeError):
             pass
         return hits

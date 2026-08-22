@@ -45,10 +45,39 @@ class PackageIntel:
                 {"name": "Docker Hub", "url": f"https://hub.docker.com/search?q={quote(q)}"},
             ],
         }
+        # Annotate relevance — exact / prefix matches preferred over fuzzy search noise
+        for reg in ("npm", "pypi", "crates", "rubygems", "dockerhub"):
+            items = out.get(reg) or []
+            if not isinstance(items, list):
+                continue
+            scored = []
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                name = str(it.get("name") or "").lower()
+                ql = q.lower()
+                if name == ql:
+                    it["confidence"] = "confirmed"
+                    it["relevance"] = 100
+                elif name.startswith(ql) or ql.startswith(name):
+                    it["confidence"] = "high"
+                    it["relevance"] = 80
+                elif ql in name:
+                    it["confidence"] = "medium"
+                    it["relevance"] = 50
+                else:
+                    it["confidence"] = "low"
+                    it["relevance"] = 20
+                scored.append(it)
+            scored.sort(key=lambda x: -int(x.get("relevance") or 0))
+            # Drop very weak fuzzy noise unless nothing better
+            strong = [s for s in scored if (s.get("relevance") or 0) >= 50]
+            out[reg] = strong if strong else scored[:3]
         out["hit_count"] = sum(
             len(out[k]) for k in ("npm", "pypi", "crates", "rubygems", "dockerhub")
             if isinstance(out.get(k), list)
         )
+        out["note"] = "Package hits ranked by name relevance; low-relevance fuzzy matches filtered."
         return out
 
     def _npm(self, q: str, limit: int) -> List[Dict[str, Any]]:

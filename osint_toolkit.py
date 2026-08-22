@@ -52,6 +52,7 @@ from modules.package_intel import PackageIntel
 from modules.person_intel import PersonIntel
 from modules.plugins_loader import PluginLoader
 from modules.http_util import set_rate_limit
+from modules.result_quality import annotate_results
 
 
 class OSINTToolkit:
@@ -152,21 +153,45 @@ class OSINTToolkit:
         results = {
             'username': username,
             'profiles': {},
+            'summary': {},
             'email_addresses': [],
+            'email_guess_pivots': [],
             'associated_accounts': []
         }
         
         if options.get('search', True):
             print("  [*] Searching across social platforms...")
             results['profiles'] = self.social_intel.search_username(username)
+            results['summary'] = self.social_intel.summarize_profiles(results['profiles'])
+            rel = results['summary'].get('reliable_count', 0)
+            low = results['summary'].get('low_confidence_count', 0)
+            print(f"  [+] Reliable profiles: {rel}  (low-confidence excluded: {low})")
         
         if options.get('email', True):
-            print("  [*] Discovering email addresses...")
+            print("  [*] Discovering verified email addresses...")
             results['email_addresses'] = self.social_intel.discover_emails(username)
+            # Unverified mailbox patterns as pivots only — never listed as found emails
+            results['email_guess_pivots'] = self.social_intel.email_guess_pivots(username)
         
         if options.get('associated', True):
             print("  [*] Finding associated accounts...")
-            results['associated_accounts'] = self.social_intel.find_associated_accounts(username)
+            # Reuse profiles already fetched when available (avoid double-scan)
+            if results.get('profiles'):
+                found = [
+                    {
+                        "platform": p,
+                        "url": i.get("url"),
+                        "confidence": i.get("confidence"),
+                    }
+                    for p, i in results['profiles'].items()
+                    if i.get("exists") is True
+                    and (i.get("confidence") or "") in ("confirmed", "high", "medium")
+                ]
+                results['associated_accounts'] = (
+                    [{"source": "platform_matrix", "accounts": found}] if found else []
+                )
+            else:
+                results['associated_accounts'] = self.social_intel.find_associated_accounts(username)
         
         return results
     
@@ -764,6 +789,7 @@ class OSINTToolkit:
     
     def save_results(self, results: Dict, format: str = "json") -> str:
         """Save results to file"""
+        annotate_results(results)
         safe_target = "".join(c if c.isalnum() or c in "._-" else "_" for c in str(results.get('target', 'unknown')))[:80]
         filename = f"osint_{self.timestamp}_{safe_target}.{format}"
         filepath = self.output_dir / filename
@@ -794,27 +820,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Interactive TUI (keyboard GUI)
+  # Interactive TUI (recommended)
   python osint_toolkit.py
   python osint_toolkit.py --tui
 
-  # Full domain scan
+  # Auto / full scan
+  python osint_toolkit.py -t example.com --auto
   python osint_toolkit.py -t example.com --full
-  
-  # Social media search
-  python osint_toolkit.py -t username --type username
-  
-  # GitHub intelligence
-  python osint_toolkit.py -t githubuser --github
-  
-  # Company employee discovery and leak checking
-  python osint_toolkit.py -t "Company Name" --type company --employees --leaks
-  
-  # Custom scan with specific modules
-  python osint_toolkit.py -t example.com --dns --subdomains --ports
-  
-  # Save as HTML report
+
+  # Domain recon extras
+  python osint_toolkit.py -t example.com --saas --typosquat --packages --related
+
+  # People / company
+  python osint_toolkit.py -t johndoe --type username --social --github
+  python osint_toolkit.py -t "Jane Doe" --type person --person --perms
+  python osint_toolkit.py -t "Acme Corp" --type company --employees --leaks --company-biz
+
+  # Web3
+  python osint_toolkit.py -t vitalik.eth --crypto --chains evm
+
+  # Save HTML report
   python osint_toolkit.py -t example.com --full --format html
+
+See README.md / QUICKSTART.md for the full feature list.
         """
     )
     

@@ -88,9 +88,9 @@ class EmployeeIntel:
                         if user_response.status_code == 200:
                             user_data = user_response.json()
                             
-                            # Check if company matches
-                            user_company = user_data.get('company', '').lower()
-                            if company.lower() in user_company or user_company in company.lower():
+                            # Strict company field match (avoid username/search noise)
+                            user_company = (user_data.get('company') or '').strip()
+                            if self._company_field_match(company, user_company):
                                 employees.append({
                                     'name': user_data.get('name', username),
                                     'title': 'Developer',  # GitHub doesn't provide titles
@@ -101,7 +101,9 @@ class EmployeeIntel:
                                     'bio': user_data.get('bio'),
                                     'social_profiles': {
                                         'github': profile_url
-                                    }
+                                    },
+                                    'confidence': 'high',
+                                    'match_reason': 'github_company_field',
                                 })
                     except:
                         continue
@@ -110,17 +112,49 @@ class EmployeeIntel:
         
         return employees
     
+    @staticmethod
+    def _company_field_match(target: str, user_company: str) -> bool:
+        """Strict match between search target and a profile company field."""
+        t = (target or "").strip().lower()
+        u = (user_company or "").strip().lower()
+        if not t or not u:
+            return False
+        # strip common @ prefix used on GitHub company fields
+        u_clean = u.lstrip("@").strip()
+        t_clean = t.lstrip("@").strip()
+        if not u_clean:
+            return False
+        if u_clean == t_clean:
+            return True
+        # allow "Acme Inc" vs "acme" only if target is long enough
+        if len(t_clean) >= 4 and (t_clean in u_clean or u_clean in t_clean):
+            # reject tiny token collisions (e.g. "inc", "co")
+            if len(t_clean) < 5 and t_clean not in u_clean.split():
+                return False
+            # require word-ish boundary for short targets
+            if len(t_clean) < 6:
+                parts = re.split(r"[\s,/@\-]+", u_clean)
+                return t_clean in parts or any(p.startswith(t_clean) for p in parts if len(p) >= len(t_clean))
+            return True
+        return False
+
     def _discover_from_gitlab(self, company: str) -> List[Dict]:
-        """Discover employees from GitLab"""
+        """Discover employees from GitLab (org/group members only — not username==company)."""
         employees = []
-        
+        slug = re.sub(r"[^a-z0-9\-]", "", (company or "").lower().replace(" ", "-"))
+        if not slug:
+            return employees
         try:
-            # Search GitLab for users
-            url = f"https://gitlab.com/api/v4/users?username={quote(company)}"
-            response = requests.get(url, headers=self.headers, timeout=10)
-            
+            # Prefer group lookup over username match (old code falsely treated
+            # "user named Acme" as an employee of Acme).
+            gurl = f"https://gitlab.com/api/v4/groups/{quote(slug, safe='')}"
+            gr = requests.get(gurl, headers=self.headers, timeout=10)
+            if gr.status_code != 200:
+                return employees
+            members_url = f"https://gitlab.com/api/v4/groups/{quote(slug, safe='')}/members"
+            response = requests.get(members_url, headers=self.headers, timeout=10)
             if response.status_code == 200:
-                users = response.json() if isinstance(response.json(), list) else [response.json()]
+                users = response.json() if isinstance(response.json(), list) else []
                 for user in users[:50]:
                     employees.append({
                         'name': user.get('name', user.get('username')),
@@ -128,15 +162,14 @@ class EmployeeIntel:
                         'company': company,
                         'gitlab_url': user.get('web_url'),
                         'email': user.get('email'),
-                        'location': user.get('location'),
-                        'bio': user.get('bio'),
                         'social_profiles': {
                             'gitlab': user.get('web_url')
-                        }
+                        },
+                        'confidence': 'high',
+                        'match_reason': 'gitlab_group_member',
                     })
-        except:
+        except Exception:
             pass
-        
         return employees
     
     def _discover_from_website(self, company: str) -> List[Dict]:

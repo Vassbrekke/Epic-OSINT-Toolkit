@@ -1,0 +1,131 @@
+{
+  "components": [
+    {
+      "bom-ref": "BomRef.6449465781159657.7824640451301548",
+      "name": "PySocks",
+      "type": "library",
+      "version": "1.7.1"
+    },
+    {
+      "bom-ref": "BomRef.301101272963309.9659457898671331",
+      "name": "beautifulsoup4",
+      "type": "library",
+      "version": "4.15.0"
+    },
+    {
+      "bom-ref": "BomRef.8776911067378472.986619096792195",
+      "name": "certifi",
+      "type": "library",
+      "version": "2026.7.22"
+    },
+    {
+      "bom-ref": "BomRef.9416436148617295.5093692406510993",
+      "name": "charset-normalizer",
+      "type": "library",
+      "version": "3.5.1"
+    },
+    {
+      "bom-ref": "BomRef.2728772826862753.5505471742788405",
+      "name": "dnspython",
+      "type": "library",
+      "version": "2.8.0"
+    },
+    {
+      "bom-ref": "BomRef.034801352191053625.8059960677206676",
+      "name": "idna",
+      "type": "library",
+      "version": "3.19"
+    },
+    {
+      "bom-ref": "BomRef.9909757164804198.025895630036084083",
+      "name": "python-dateutil",
+      "type": "library",
+      "version": "2.9.0.post0"
+    },
+    {
+      "bom-ref": "BomRef.07126243427861134.8155673704330155",
+      "name": "python-whois",
+      "type": "library",
+      "version": "0.9.6"
+    },
+    {
+      "bom-ref": "BomRef.894991207411562.14266024718068193",
+      "name": "requests",
+      "type": "library",
+      "version": "2.34.2"
+    },
+    {
+      "bom-ref": "BomRef.3300487505437253.3559211105241644",
+      "name": "six",
+      "type": "library",
+      "version": "1.17.0"
+    },
+    {
+      "bom-ref": "BomRef.46216371691605806.13198152268912788",
+      "name": "soupsieve",
+      "type": "library",
+      "version": "2.9.2"
+    },
+    {
+      "bom-ref": "BomRef.9694970846008054.989453916698003",
+      "name": "typing_extensions",
+      "type": "library",
+      "version": "4.16.0"
+    },
+    {
+      "bom-ref": "BomRef.4148125812722333.9033931259521107",
+      "name": "urllib3",
+      "type": "library",
+      "version": "2.7.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "BomRef.034801352191053625.8059960677206676"
+    },
+    {
+      "ref": "BomRef.07126243427861134.8155673704330155"
+    },
+    {
+      "ref": "BomRef.2728772826862753.5505471742788405"
+    },
+    {
+      "ref": "BomRef.301101272963309.9659457898671331"
+    },
+    {
+      "ref": "BomRef.3300487505437253.3559211105241644"
+    },
+    {
+      "ref": "BomRef.4148125812722333.9033931259521107"
+    },
+    {
+      "ref": "BomRef.46216371691605806.13198152268912788"
+    },
+    {
+      "ref": "BomRef.6449465781159657.7824640451301548"
+    },
+    {
+      "ref": "BomRef.8776911067378472.986619096792195"
+    },
+    {
+      "ref": "BomRef.894991207411562.14266024718068193"
+    },
+    {
+      "ref": "BomRef.9416436148617295.5093692406510993"
+    },
+    {
+      "ref": "BomRef.9694970846008054.989453916698003"
+    },
+    {
+      "ref": "BomRef.9909757164804198.025895630036084083"
+    }
+  ],
+  "metadata": {
+    "timestamp": "2026-08-22T13:23:03.451745+00:00"
+  },
+  "serialNumber": "urn:uuid:cbb88e05-86d0-4bfa-bf0f-a9d02bc109a7",
+  "version": 1,
+  "$schema": "http://cyclonedx.org/schema/bom-1.4.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4"
+}

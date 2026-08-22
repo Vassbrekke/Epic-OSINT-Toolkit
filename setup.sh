@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 
 if ! command -v python3 &> /dev/null; then
     echo "ERROR: Python 3 is not installed"
-    echo "Please install Python 3.8 or higher"
+    echo "Please install Python 3.10 or higher"
     exit 1
 fi
 
@@ -40,14 +40,11 @@ create_venv() {
 install_deps() {
     # shellcheck disable=SC1091
     source venv/bin/activate
+    echo "Installing hashed lockfile (requirements.txt)..."
     if command -v uv &> /dev/null; then
-        echo "Installing dependencies with uv..."
-        uv pip install -r requirements.txt
+        uv pip install --require-hashes -r requirements.txt
     else
-        echo "Upgrading pip..."
-        python -m pip install --upgrade pip
-        echo "Installing dependencies..."
-        python -m pip install -r requirements.txt
+        python -m pip install --require-hashes -r requirements.txt
     fi
 }
 

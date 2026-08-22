@@ -141,15 +141,25 @@ python osint_toolkit.py -t example.com --auto
 
 ## Installation
 
-**Prerequisites:** Python 3.8+, pip
+**Prerequisites:** Python 3.10+, pip
+
+Dependencies are **pin-locked with hashes** in `requirements.txt` (generated from `requirements.in`). Setup scripts install that lockfile with `--require-hashes` so you get the same artifacts the maintainers audited — not “latest matching the range”.
 
 ```bash
 cd Epic-OSINT-Toolkit
-pip install -r requirements.txt
+python -m pip install --require-hashes -r requirements.txt
 # or
 ./setup.sh && source venv/bin/activate   # Linux/Mac
 # Windows: .\setup.ps1 then .\venv\Scripts\Activate.ps1
 ```
+
+Regenerate the lockfile and CycloneDX SBOM after changing `requirements.in`:
+
+```bash
+./scripts/lock-deps.sh
+```
+
+Weekly Dependabot PRs update the lockfile. CI runs `pip-audit` on every PR and publishes a CycloneDX SBOM artifact. A committed SBOM lives at `sbom/cyclonedx.json`.
 
 Optional: Tor on `127.0.0.1:9050` for dark-web mode. API keys are optional (see above).
 
@@ -300,7 +310,8 @@ Run `python osint_toolkit.py --help` for the full list.
 | `cases.py` / `graph_export.py` | Cases + GraphML |
 | `plugins_loader.py` | Drop-in plugins |
 | `correlate.py` | Auto-detect + entity graph |
-| `report_generator.py` | TXT / HTML / Markdown / summary |
+| `report_generator.py` | TXT / HTML / Markdown / summary + findings ledger |
+| `result_quality.py` | Confidence scoring, provenance stamping, soft-404 |
 | `tui.py` / `tui_style.py` | Split-pane ASCII UI + styled reports |
 | `http_util.py` / `net_util.py` | Rate-limit, UA rotation, SSRF-safe hosts |
 
@@ -309,6 +320,26 @@ Run `python osint_toolkit.py --help` for the full list.
 ## Output
 
 Reports are written under `reports/` (or `-o`) as JSON, TXT, HTML, or Markdown. Cases live under `cases/`. The TUI formats the same JSON into a readable intel report and can delete old `osint_*` files from the Reports tab.
+
+Every scan attaches a **findings ledger**: finding, source, timestamp, method, confidence, evidence, and false-positive notes. Treat hits as scored claims, not proof — especially across social, buckets, takeover, SaaS, packages, and employee modules.
+
+---
+
+## Result quality
+
+OSINT coverage here is broad (DNS, social, crawl, dark web, employees, breaches, buckets, takeover, Shodan, EXIF, Web3, packages, filings, correlation). Breadth is not certainty.
+
+| Field | Meaning |
+|-------|---------|
+| **Finding** | The claim (URL, host, email, package, …) |
+| **Source** | Where the signal came from |
+| **Timestamp** | When this scan recorded it (UTC) |
+| **Method** | How it was obtained |
+| **Confidence** | `confirmed` > `high` > `medium` > `low` > `unknown` |
+| **Evidence** | Status codes, fingerprints, match reasons |
+| **False-positive notes** | Why this class of hit is often wrong |
+
+Reports hide below-medium claims by default; they remain in JSON `findings[]`. Corroborate with a second independent source before acting.
 
 ---
 

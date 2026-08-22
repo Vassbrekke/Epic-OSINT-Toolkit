@@ -31,22 +31,89 @@ class BucketIntel:
 
         def check(item: Dict[str, str]) -> Optional[Dict[str, Any]]:
             url = item["url"]
+            provider = item["provider"]
             try:
-                r = self.session.head(url, timeout=6, allow_redirects=True)
-                # some buckets disallow HEAD — try GET lightly
+                r = self.session.get(url, timeout=6, allow_redirects=True, stream=True)
                 status = r.status_code
-                if status in (403, 405):
-                    r = self.session.get(url, timeout=6, stream=True)
-                    status = r.status_code
+                # read a small body sample for provider error XML/JSON
+                try:
+                    chunk = next(r.iter_content(chunk_size=4096), b"")
+                    body = chunk.decode("utf-8", errors="ignore") if chunk else ""
+                except Exception:
+                    body = ""
+                finally:
                     r.close()
-                if status in (200, 301, 302, 403):
+
+                low = body.lower()
+                # Definite non-existence signals
+                no_bucket = any(s in low for s in (
+                    "nosuchbucket",
+                    "the specified bucket does not exist",
+                    "no such bucket",
+                    "bucket does not exist",
+                    "notfound",
+                    "nosuchkey",
+                    "no such host",
+                    "dns_probe",
+                ))
+                if status in (404, 410) or no_bucket:
+                    return None
+
+                # Azure / DO often return 400/404 for missing; generic 403 on
+                # virtual-hosted endpoints can be platform noise (not proof of bucket).
+                if provider in ("azure", "digitalocean") and status in (400, 404):
+                    return None
+                if provider == "azure" and status == 403 and "blob.core.windows.net" in url:
+                    # Account may not exist or auth required — weak signal only
+                    conf = "low"
                     return {
-                        "provider": item["provider"],
+                        "provider": provider,
                         "bucket": item["bucket"],
                         "url": url,
                         "status": status,
-                        "public_list": status == 200,
-                        "exists_hint": status in (200, 403),
+                        "public_list": False,
+                        "exists_hint": False,
+                        "confidence": conf,
+                        "note": "Weak 403 — may be platform default, not a real container",
+                    }
+
+                if status == 200:
+                    # listing XML / HTML directory
+                    public = ("listbucketresult" in low) or ("<html" not in low and len(body) > 0) or ("contents" in low)
+                    return {
+                        "provider": provider,
+                        "bucket": item["bucket"],
+                        "url": url,
+                        "status": status,
+                        "public_list": public or True,
+                        "exists_hint": True,
+                        "confidence": "high" if "listbucketresult" in low else "medium",
+                    }
+                if status == 403:
+                    # S3 403 AccessDenied usually means the bucket exists
+                    if provider.startswith("aws") or provider == "gcs":
+                        if "invalidbucketname" in low or "nosuchbucket" in low:
+                            return None
+                        return {
+                            "provider": provider,
+                            "bucket": item["bucket"],
+                            "url": url,
+                            "status": status,
+                            "public_list": False,
+                            "exists_hint": True,
+                            "confidence": "high" if "accessdenied" in low or "access denied" in low else "medium",
+                        }
+                    return None
+                if status in (301, 302):
+                    return {
+                        "provider": provider,
+                        "bucket": item["bucket"],
+                        "url": url,
+                        "status": status,
+                        "public_list": False,
+                        "exists_hint": True,
+                        "confidence": "low",
+                        "note": "Redirect only — verify manually",
                     }
             except requests.RequestException:
                 return None
@@ -59,13 +126,22 @@ class BucketIntel:
                 if res:
                     found.append(res)
 
-        found.sort(key=lambda x: (not x.get("public_list"), x.get("provider"), x.get("bucket")))
+        found.sort(key=lambda x: (
+            0 if x.get("confidence") == "high" else 1 if x.get("confidence") == "medium" else 2,
+            not x.get("public_list"),
+            x.get("provider"),
+            x.get("bucket"),
+        ))
+        reliable = [f for f in found if f.get("confidence") in ("high", "medium") and f.get("exists_hint")]
+        public = [f for f in reliable if f.get("public_list")]
         return {
             "name": base,
             "probed": len(candidates),
-            "hits": len(found),
-            "public": [f for f in found if f.get("public_list")],
-            "exists": found,
+            "hits": len(reliable),
+            "public": public,
+            "exists": reliable,
+            "low_confidence": [f for f in found if f.get("confidence") == "low"],
+            "note": "Only medium/high confidence bucket signals counted as hits. 403 on S3/GCS usually means exists-but-private.",
         }
 
     def _normalize(self, name: str) -> str:
